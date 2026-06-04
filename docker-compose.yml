@@ -1,0 +1,21 @@
+services:
+  bifrost:
+    build: .
+    image: bifrost:0.1
+    container_name: bifrost
+    restart: unless-stopped
+    # Bind to localhost on the host by default; change to "8088:8088" to expose.
+    ports:
+      - "127.0.0.1:8088:8088"
+    env_file:
+      - .env
+    environment:
+      # Container-internal bind; published via the ports mapping above.
+      BIFROST_HOST: "0.0.0.0"
+      BIFROST_PORT: "8088"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8088/health',timeout=2).status==200 else 1)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
