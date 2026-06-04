@@ -4,10 +4,11 @@ services:
     image: bifrost:0.1
     container_name: bifrost
     restart: unless-stopped
-    # Exposed publicly on :8088. The backend requires BIFROST_API_KEY (bearer
-    # token) on its API routes, so the open port still needs auth.
+    # Bound to localhost only. Public traffic comes in through the host nginx
+    # reverse proxy on https://206.189.100.31.sslip.io (TLS via Let's Encrypt),
+    # which proxies to 127.0.0.1:8088. No plain-HTTP port is exposed publicly.
     ports:
-      - "0.0.0.0:8088:8088"
+      - "127.0.0.1:8088:8088"
     env_file:
       - .env
     environment:

@@ -51,8 +51,18 @@ docker compose up --build -d  # http://127.0.0.1:8088
 docker compose logs -f bifrost
 ```
 
-The compose service binds to `127.0.0.1:8088` on the host by default; widen the
-`ports` mapping only if you intend to expose it.
+The compose service binds to `127.0.0.1:8088` on the host. Public access goes
+through a host nginx reverse proxy with TLS instead of exposing the port.
+
+### Public access (TLS, no domain needed)
+
+The live deployment is fronted by nginx + Let's Encrypt at
+**`https://206.189.100.31.sslip.io`** — a `sslip.io` hostname that resolves to
+the droplet IP, so a real browser-trusted cert can be issued without owning a
+domain. Set `BIFROST_API_KEY` so the proxied endpoint requires a bearer token.
+The nginx vhost is checked in at `deploy/nginx-bifrost.conf` (host-level config,
+not managed by docker/CI). API routes (`/settings`, `/v1/chat/completions`)
+require `Authorization: Bearer <BIFROST_API_KEY>`; `/health` is open.
 
 ## Endpoints
 
