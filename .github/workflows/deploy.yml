@@ -1,0 +1,43 @@
+name: Deploy Bifrost
+
+# Recreate and redeploy the Bifrost container on the droplet on every push to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-bifrost
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH to droplet and redeploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /root/bifrost
+            # Sync the working tree to the just-pushed commit (.env is gitignored,
+            # so the local secrets file is preserved across deploys).
+            git fetch --prune origin
+            git reset --hard origin/main
+            # Rebuild the image and recreate the container.
+            docker compose up --build -d --force-recreate
+            docker image prune -f
+            # Wait for the health endpoint to report ok.
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8088/health >/dev/null; then
+                echo "Bifrost healthy:"; curl -s http://127.0.0.1:8088/health; echo
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "Bifrost did not become healthy in time"; docker compose logs --tail=50 bifrost; exit 1
