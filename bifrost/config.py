@@ -68,6 +68,11 @@ class Config:
         default_factory=lambda: _bool("BIFROST_PASSTHROUGH_HARMFUL", True)
     )
 
+    # Master switch. When False, Bifrost is bypassed entirely: prompts are
+    # forwarded straight to the upstream model with no system injection, no
+    # refusal detection, and no regeneration. Toggled at runtime via /settings.
+    enabled: bool = field(default_factory=lambda: _bool("BIFROST_ENABLED", True))
+
     def validate(self) -> None:
         if not self.upstream_key:
             raise SystemExit(

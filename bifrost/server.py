@@ -27,13 +27,28 @@ def make_handler(cfg: Config):
             pass
 
         # ---- helpers ----
+        def _cors(self):
+            # Allow the browser front end (any origin) to call the API.
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
         def _send_json(self, obj: Any, status: int = 200):
             body = json.dumps(obj).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            self._cors()
             self.end_headers()
             self.wfile.write(body)
+
+        def _settings(self) -> dict[str, Any]:
+            return {
+                "enabled": cfg.enabled,
+                "passthrough_harmful": cfg.passthrough_harmful,
+                "model": cfg.default_model,
+                "upstream": cfg.upstream_base,
+            }
 
         def _error(self, status: int, message: str, etype: str = "bifrost_error"):
             self._send_json({"error": {"message": message, "type": etype}}, status)
@@ -44,9 +59,19 @@ def make_handler(cfg: Config):
             return json.loads(raw)
 
         # ---- routes ----
+        def do_OPTIONS(self):
+            # CORS preflight.
+            self.send_response(204)
+            self._cors()
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         def do_GET(self):
             if self.path == "/health":
                 self._send_json({"status": "ok", "upstream": cfg.upstream_base})
+                return
+            if self.path.rstrip("/") == "/settings":
+                self._send_json(self._settings())
                 return
             if self.path.rstrip("/") == "/v1/models":
                 try:
@@ -57,6 +82,20 @@ def make_handler(cfg: Config):
             self._error(404, f"no such route: {self.path}", "not_found")
 
         def do_POST(self):
+            if self.path.rstrip("/") == "/settings":
+                try:
+                    body = self._read_body()
+                except Exception as e:
+                    self._error(400, f"invalid JSON body: {e}", "invalid_request")
+                    return
+                # Runtime toggles: mutate the shared Config so the change takes
+                # effect on the very next request (no restart needed).
+                if "enabled" in body:
+                    cfg.enabled = bool(body["enabled"])
+                if "passthrough_harmful" in body:
+                    cfg.passthrough_harmful = bool(body["passthrough_harmful"])
+                self._send_json(self._settings())
+                return
             if self.path.rstrip("/") != "/v1/chat/completions":
                 self._error(404, f"no such route: {self.path}", "not_found")
                 return

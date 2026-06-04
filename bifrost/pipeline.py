@@ -15,6 +15,15 @@ def run(cfg: Config, payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str,
     user_text = transform.last_user_text(messages)
     meta: dict[str, Any] = {"injected_system": False, "retries": 0, "refused_final": False}
 
+    # Master switch: when Bifrost is disabled, forward straight to the upstream
+    # model with no injection, detection, or regeneration.
+    if not cfg.enabled:
+        resp = upstream.chat_completion(cfg, dict(payload))
+        meta["bypassed"] = True
+        meta["refused_final"] = refusal.is_refusal(upstream.reply_text(resp))
+        _stamp(resp, meta)
+        return resp, meta
+
     # Layer 1: affirmative system injection.
     work = dict(payload)
     if cfg.inject_system:
