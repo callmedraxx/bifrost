@@ -4,9 +4,10 @@ services:
     image: bifrost:0.1
     container_name: bifrost
     restart: unless-stopped
-    # Bind to localhost on the host by default; change to "8088:8088" to expose.
+    # Exposed publicly on :8088. The backend requires BIFROST_API_KEY (bearer
+    # token) on its API routes, so the open port still needs auth.
     ports:
-      - "127.0.0.1:8088:8088"
+      - "0.0.0.0:8088:8088"
     env_file:
       - .env
     environment:

@@ -43,6 +43,11 @@ class Config:
         ).rstrip("/")
     )
     upstream_key: str = field(default_factory=lambda: os.environ.get("BIFROST_UPSTREAM_KEY", ""))
+
+    # Optional bearer token clients must present (Authorization: Bearer <key>)
+    # on the API routes once Bifrost is exposed beyond localhost. Empty = no
+    # auth required (fine for a localhost-only bind).
+    api_key: str = field(default_factory=lambda: os.environ.get("BIFROST_API_KEY", ""))
     upstream_timeout: float = field(
         default_factory=lambda: float(os.environ.get("BIFROST_UPSTREAM_TIMEOUT", "120"))
     )

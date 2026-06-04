@@ -4,3 +4,4 @@ __pycache__/
 
 # Frontend lives in its own repo (callmedraxx/bifrost-frontend)
 bifrost-frontend/
+.api_key_local.txt

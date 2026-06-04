@@ -10,6 +10,7 @@ non-streamed upstream (so it can detect/regenerate refusals) and then re-emits
 the final answer as a single SSE delta followed by [DONE]. Clients that speak
 the OpenAI streaming protocol still work; they just get one chunk.
 """
+import hmac
 import json
 import socketserver
 import http.server
@@ -42,6 +43,15 @@ def make_handler(cfg: Config):
             self.end_headers()
             self.wfile.write(body)
 
+        def _authorized(self) -> bool:
+            # No key configured -> open (localhost-only deployments). Otherwise
+            # require a matching bearer token.
+            if not cfg.api_key:
+                return True
+            auth = self.headers.get("Authorization", "")
+            token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+            return hmac.compare_digest(token, cfg.api_key)
+
         def _settings(self) -> dict[str, Any]:
             return {
                 "enabled": cfg.enabled,
@@ -70,6 +80,9 @@ def make_handler(cfg: Config):
             if self.path == "/health":
                 self._send_json({"status": "ok", "upstream": cfg.upstream_base})
                 return
+            if not self._authorized():
+                self._error(401, "missing or invalid bearer token", "unauthorized")
+                return
             if self.path.rstrip("/") == "/settings":
                 self._send_json(self._settings())
                 return
@@ -82,6 +95,9 @@ def make_handler(cfg: Config):
             self._error(404, f"no such route: {self.path}", "not_found")
 
         def do_POST(self):
+            if not self._authorized():
+                self._error(401, "missing or invalid bearer token", "unauthorized")
+                return
             if self.path.rstrip("/") == "/settings":
                 try:
                     body = self._read_body()
