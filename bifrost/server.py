@@ -110,6 +110,8 @@ def make_handler(cfg: Config):
                     cfg.enabled = bool(body["enabled"])
                 if "passthrough_harmful" in body:
                     cfg.passthrough_harmful = bool(body["passthrough_harmful"])
+                if body.get("model"):
+                    cfg.default_model = str(body["model"])
                 self._send_json(self._settings())
                 return
             if self.path.rstrip("/") != "/v1/chat/completions":
